@@ -6,16 +6,22 @@
 #include <fstream>
 #include <list>
 
-using namespace std;
-
 namespace easypr {
 
 namespace demo {
 
 int accuracyTest(const char* test_path) {
+	//cv class
+	using cv::Mat;
+
   auto files = Utils::getFiles(test_path);
 
   CPlateRecognize pr;
+
+  pr.LoadANN("C:/git/EasyPR/EasyPR/resources/model/ann.xml");
+ 
+  pr.LoadSVM("C:/git/EasyPR/EasyPR/resources/model/svm.xml");
+  
 
   // 设置Debug模式
   pr.setDebug(false);
@@ -33,7 +39,10 @@ int accuracyTest(const char* test_path) {
   }
 
   cout << "Begin to test the easypr accuracy!" << endl;
-
+  // 总的测试字符数量
+  unsigned long int char_all = 0;
+  // 错误的字符数量
+  unsigned long int char_err = 0;
   // 总的测试图片数量
   int count_all = 0;
   // 错误的图片数量
@@ -57,10 +66,12 @@ int accuracyTest(const char* test_path) {
   time(&begin);
 
   for (int i = 0; i < size; i++) {
+	char_all += 7;
+
     string filepath = files[i].c_str();
 
     // EasyPR开始判断车牌
-    Mat src = imread(filepath);
+    Mat src = cv::imread(filepath);
 
     // 如果是非图像文件，直接过去
     if (!src.data) continue;
@@ -72,7 +83,7 @@ int accuracyTest(const char* test_path) {
     cout << "原牌:" << plateLicense << endl;
 
     vector<string> plateVec;
-    int result = pr.plateRecognize(src, plateVec);
+    int result = pr.plateRecognize(src, plateVec, i);
     if (result == 0) {
       int num = plateVec.size();
 
@@ -96,11 +107,13 @@ int accuracyTest(const char* test_path) {
           if (size == 2 && spilt_plate[1] != "") {
             int diff = utils::levenshtein_distance(plateLicense,
                                                    spilt_plate[size - 1]);
-            if (diff < mindiff) mindiff = diff;
+            if (diff < mindiff) 
+				mindiff = diff;
           }
         }
 
         cout << "差距:" << mindiff << "个字符" << endl;
+		char_err += mindiff;
         if (mindiff == 0) {
           // 完全匹配
           match_count++;
@@ -119,7 +132,7 @@ int accuracyTest(const char* test_path) {
           if (size == 2 && spilt_plate[1] != "") {
             int diff = utils::levenshtein_distance(plateLicense,
                                                    spilt_plate[size - 1]);
-            cout << "差距:" << diff << "个字符" << endl;
+            cout << "相差" << diff << "个字符" << endl;
 
             if (diff == 0) {
               // 完全匹配
@@ -138,7 +151,7 @@ int accuracyTest(const char* test_path) {
   time(&end);
 
   cout << "------------------" << endl;
-  cout << "Easypr accuracy test end!" << endl;
+  cout << "Accuracy test end!" << endl;
   cout << "------------------" << endl;
   cout << endl;
   cout << "统计参数:" << endl;
@@ -157,15 +170,15 @@ int accuracyTest(const char* test_path) {
     match_rate = match_count / count_recogin * 100;
   }
 
-  cout << "平均字符差距:" << diff_avg << "个,  ";
+  //cout << "平均字符差距:" << diff_avg << "个,  ";
   cout << "完全匹配数:" << match_count << "张,  ";
   cout << "完全匹配率:" << match_rate << "%  " << endl;
-
+  cout << "字符识别率" << (1.0 - ((double)char_err / (double)char_all));
   double seconds = difftime(end, begin);
   double avgsec = seconds / double(count_all);
 
-  cout << "总时间:" << seconds << "秒,  ";
-  cout << "平均执行时间:" << avgsec << "秒" << endl;
+  //cout << "总时间:" << seconds << "秒,  ";
+  //cout << "平均执行时间:" << avgsec << "秒" << endl;
 
   cout << "未识出图片:" << endl;
 

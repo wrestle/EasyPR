@@ -8,7 +8,7 @@ namespace demo {
 int test_chars_segment() {
   std::cout << "test_chars_segment" << std::endl;
 
-  cv::Mat src = cv::imread("resources/image/chars_segment.jpg");
+  cv::Mat src = cv::imread("C:/git/EasyPR/EasyPR/resources/image/chars_segment.jpg");
 
   std::vector<cv::Mat> resultVec;
   CCharsSegment plate;
@@ -30,27 +30,41 @@ int test_chars_segment() {
 int test_chars_identify() {
   std::cout << "test_chars_identify" << std::endl;
 
-  cv::Mat plate = cv::imread("resources/image/chars_identify.jpg");
+  cv::Mat src = cv::imread("C:/git/EasyPR/EasyPR/resources/image/chars_identify.jpg");
 
-  std::vector<Mat> matChars;
-  std::string license;
-
+  std::vector<cv::Mat> resultVec;
+  std::cout << "Before create Object" << std::endl;
   CCharsSegment cs;
+  CCharsIdentify ci;
 
-  int result = cs.charsSegment(plate, matChars);
+  std::string plateIdentify = "";
+  std::cout << "Before charsSegment" << std::endl;
+  int result = cs.charsSegment(src, resultVec);
   if (result == 0) {
-    for (auto block : matChars) {
-      auto character = CharsIdentify::instance()->identify(block);
-      license.append(character.second);
+    size_t num = resultVec.size();
+    for (size_t j = 0; j < num; j++) {
+      cv::Mat resultMat = resultVec[j];
+      bool isChinses = false;
+      bool isSpec = false;
+
+      //默认首个字符块是中文字符
+      if (j == 0)
+        isChinses = true;
+
+      if (j == 1)
+        isSpec = true;
+
+      std::string charcater = ci.charsIdentify(resultMat, isChinses, isSpec);
+      plateIdentify = plateIdentify + charcater;
     }
   }
 
   const std::string plateLicense = "苏E771H6";
 
   std::cout << "plateLicense: " << plateLicense << std::endl;
-  std::cout << "plateIdentify: " << license << std::endl;
+  std::cout << "plateIdentify: " << plateIdentify << std::endl;
 
-  if (plateLicense != license) {
+  if (plateLicense != plateIdentify) {
     std::cout << "Identify Not Correct!" << std::endl;
     return -1;
   }
@@ -62,13 +76,21 @@ int test_chars_identify() {
 int test_chars_recognise() {
   std::cout << "test_chars_recognise" << std::endl;
 
-  cv::Mat src = cv::imread("resources/image/chars_recognise.jpg");
+  cv::Mat src = cv::imread("C:/git/EasyPR/EasyPR/resources/image/chars_recognise.jpg");
+
   CCharsRecognise cr;
+  cv::String charsRecognise = "";
 
-  std::cout << "charsRecognise: " << cr.charsRecognise(src) << std::endl;
-  return 0;
-}
-}
+  int result = cr.charsRecognise(src, charsRecognise);
+  if (result == 0) {
+    std::cout << "charsRecognise: " << charsRecognise << std::endl;
+  }
+
+  return result;
 }
 
-#endif  // EASYPR_CHARS_HPP
+}
+
+}
+
+#endif //EASYPR_CHARS_HPP

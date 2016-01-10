@@ -2,9 +2,10 @@
 // 所属命名空间为easypr
 // 这个部分中的函数轻易不要改动
 
-#include "easypr/core/core_func.h"
+#include <opencv2/opencv.hpp>
+#include "../../include/easypr/core_func.h"
 
-using namespace cv;
+//using namespace cv;
 
 /*! \namespace easypr
 Namespace where all the C++ EasyPR functionality resides
@@ -14,7 +15,7 @@ namespace easypr {
 //! 根据一幅图像与颜色模板获取对应的二值图
 //! 输入RGB图像, 颜色模板（蓝色、黄色）
 //! 输出灰度图（只有0和255两个值，255代表匹配，0代表不匹配）
-Mat colorMatch(const Mat& src, Mat& match, const Color r,
+cv::Mat colorMatch(const cv::Mat& src, cv::Mat& match, const Color r,
                const bool adaptive_minsv) {
   // S和V的最小值由adaptive_minsv这个bool值判断
   // 如果为true，则最小值取决于H值，按比例衰减
@@ -37,7 +38,7 @@ Mat colorMatch(const Mat& src, Mat& match, const Color r,
   const int min_white = 0;   // 15
   const int max_white = 30;  // 40
 
-  Mat src_hsv;
+  cv::Mat src_hsv;
   // 转到HSV空间进行处理，颜色搜索主要使用的是H分量进行蓝色与黄色的匹配工作
   cvtColor(src, src_hsv, CV_BGR2HSV);
 
@@ -140,7 +141,7 @@ Mat colorMatch(const Mat& src, Mat& match, const Color r,
   // cout << "avg_v:" << v_all / count << endl;
 
   // 获取颜色匹配后的二值灰度图
-  Mat src_grey;
+  cv::Mat src_grey;
   std::vector<cv::Mat> hsvSplit_done;
   split(src_hsv, hsvSplit_done);
   src_grey = hsvSplit_done[2];
@@ -150,7 +151,7 @@ Mat colorMatch(const Mat& src, Mat& match, const Color r,
   return src_grey;
 }
 
-bool bFindLeftRightBound1(Mat& bound_threshold, int& posLeft, int& posRight) {
+bool bFindLeftRightBound1(cv::Mat& bound_threshold, int& posLeft, int& posRight) {
   //从两边寻找边界
   float span = bound_threshold.rows * 0.2f;
   //左边界检测
@@ -198,7 +199,7 @@ bool bFindLeftRightBound1(Mat& bound_threshold, int& posLeft, int& posRight) {
   return false;
 }
 
-bool bFindLeftRightBound(Mat& bound_threshold, int& posLeft, int& posRight) {
+bool bFindLeftRightBound(cv::Mat& bound_threshold, int& posLeft, int& posRight) {
   //从两边寻找边界
   float span = bound_threshold.rows * 0.2f;
   //左边界检测
@@ -240,7 +241,7 @@ bool bFindLeftRightBound(Mat& bound_threshold, int& posLeft, int& posRight) {
   return false;
 }
 
-bool bFindLeftRightBound2(Mat& bound_threshold, int& posLeft, int& posRight) {
+bool bFindLeftRightBound2(cv::Mat& bound_threshold, int& posLeft, int& posRight) {
   //从两边寻找边界
   float span = bound_threshold.rows * 0.2f;
   //左边界检测
@@ -285,12 +286,12 @@ bool bFindLeftRightBound2(Mat& bound_threshold, int& posLeft, int& posRight) {
 //! 判断一个车牌的颜色
 //! 输入车牌mat与颜色模板
 //! 返回true或fasle
-bool plateColorJudge(const Mat& src, const Color r, const bool adaptive_minsv,
+bool plateColorJudge(const cv::Mat& src, const Color r, const bool adaptive_minsv,
                      float& percent) {
   // 判断阈值
   const float thresh = 0.45f;
 
-  Mat src_gray;
+  cv::Mat src_gray;
   colorMatch(src, src_gray, r, adaptive_minsv);
 
   percent =
@@ -305,7 +306,7 @@ bool plateColorJudge(const Mat& src, const Color r, const bool adaptive_minsv,
 
 // getPlateType
 //判断车牌的类型
-Color getPlateType(const Mat& src, const bool adaptive_minsv) {
+Color getPlateType(const cv::Mat& src, const bool adaptive_minsv) {
   float max_percent = 0;
   Color max_color = UNKNOWN;
 
@@ -336,9 +337,9 @@ Color getPlateType(const Mat& src, const bool adaptive_minsv) {
   }
 }
 
-void clearLiuDingOnly(Mat& img) {
+void clearLiuDingOnly(cv::Mat& img) {
   const int x = 7;
-  Mat jump = Mat::zeros(1, img.rows, CV_32F);
+  cv::Mat jump = cv::Mat::zeros(1, img.rows, CV_32F);
   for (int i = 0; i < img.rows; i++) {
     int jumpCount = 0;
     int whiteCount = 0;
@@ -365,11 +366,11 @@ void clearLiuDingOnly(Mat& img) {
 //去除车牌上方的钮钉
 //计算每行元素的阶跃数，如果小于X认为是柳丁，将此行全部填0（涂黑）
 // X的推荐值为，可根据实际调整
-bool clearLiuDing(Mat& img) {
+bool clearLiuDing(cv::Mat& img) {
   std::vector<float> fJump;
   int whiteCount = 0;
   const int x = 7;
-  Mat jump = Mat::zeros(1, img.rows, CV_32F);
+  cv::Mat jump = cv::Mat::zeros(1, img.rows, CV_32F);
   for (int i = 0; i < img.rows; i++) {
     int jumpCount = 0;
 
@@ -414,7 +415,7 @@ bool clearLiuDing(Mat& img) {
   return true;
 }
 
-void clearLiuDing(Mat mask, int& top, int& bottom) {
+void clearLiuDing(cv::Mat mask, int& top, int& bottom) {
   const int x = 7;
 
   for (int i = 0; i < mask.rows / 2; i++) {
@@ -463,7 +464,7 @@ void clearLiuDing(Mat mask, int& top, int& bottom) {
   }
 }
 
-int ThresholdOtsu(Mat mat) {
+int ThresholdOtsu(cv::Mat mat) {
   int height = mat.rows;
   int width = mat.cols;
 
@@ -506,10 +507,10 @@ int ThresholdOtsu(Mat mat) {
 }
 
 //! 直方图均衡
-Mat histeq(Mat in) {
-  Mat out(in.size(), in.type());
+cv::Mat histeq(cv::Mat in) {
+  cv::Mat out(in.size(), in.type());
   if (in.channels() == 3) {
-    Mat hsv;
+    cv::Mat hsv;
     std::vector<cv::Mat> hsvSplit;
     cvtColor(in, hsv, CV_BGR2HSV);
     split(hsv, hsvSplit);
@@ -525,10 +526,10 @@ Mat histeq(Mat in) {
 #define HORIZONTAL 1
 #define VERTICAL 0
 
-Mat CutTheRect(Mat& in, Rect& rect) {
+cv::Mat CutTheRect(cv::Mat& in, cv::Rect& rect) {
   int size = in.cols;  // (rect.width>rect.height)?rect.width:rect.height;
-  Mat dstMat(size, size, CV_8UC1);
-  dstMat.setTo(Scalar(0, 0, 0));
+  cv::Mat dstMat(size, size, CV_8UC1);
+  dstMat.setTo(cv::Scalar(0, 0, 0));
 
   int x = (int)floor((float)(size - rect.width) / 2.0f);
   int y = (int)floor((float)(size - rect.height) / 2.0f);
@@ -545,8 +546,8 @@ Mat CutTheRect(Mat& in, Rect& rect) {
   //
   return dstMat;
 }
-Rect GetCenterRect(Mat& in) {
-  Rect _rect;
+cv::Rect GetCenterRect(cv::Mat& in) {
+  cv::Rect _rect;
 
   int top = 0;
   int bottom = in.rows - 1;
@@ -622,24 +623,24 @@ Rect GetCenterRect(Mat& in) {
   return _rect;
 }
 
-Mat features(Mat in, int sizeData) {
+cv::Mat features(cv::Mat in, int sizeData) {
   //抠取中间区域
-  Rect _rect = GetCenterRect(in);
+  cv::Rect _rect = GetCenterRect(in);
 
-  Mat tmpIn = CutTheRect(in, _rect);
-  // Mat tmpIn = in.clone();
+  cv::Mat tmpIn = CutTheRect(in, _rect);
+  // cv::Mat tmpIn = in.clone();
   // Low data feature
-  Mat lowData;
-  resize(tmpIn, lowData, Size(sizeData, sizeData));
+  cv::Mat lowData;
+  resize(tmpIn, lowData, cv::Size(sizeData, sizeData));
 
   // Histogram features
-  Mat vhist = ProjectedHistogram(lowData, VERTICAL);
-  Mat hhist = ProjectedHistogram(lowData, HORIZONTAL);
+  cv::Mat vhist = ProjectedHistogram(lowData, VERTICAL);
+  cv::Mat hhist = ProjectedHistogram(lowData, HORIZONTAL);
 
   // Last 10 is the number of moments components
   int numCols = vhist.cols + hhist.cols + lowData.cols * lowData.cols;
 
-  Mat out = Mat::zeros(1, numCols, CV_32F);
+  cv::Mat out = cv::Mat::zeros(1, numCols, CV_32F);
   // Asign values to
   // feature,ANN的样本特征为水平、垂直直方图和低分辨率图像所组成的矢量
   int j = 0;
@@ -662,7 +663,7 @@ Mat features(Mat in, int sizeData) {
   return out;
 }
 
-float countOfBigValue(Mat& mat, int iValue) {
+float countOfBigValue(cv::Mat& mat, int iValue) {
   float iCount = 0.0;
   if (mat.rows > 1) {
     for (int i = 0; i < mat.rows; ++i) {
@@ -692,12 +693,12 @@ float countOfBigValue(Mat& mat, int iValue) {
   }
 }
 // ！获取垂直和水平方向直方图
-Mat ProjectedHistogram(Mat img, int t) {
+cv::Mat ProjectedHistogram(cv::Mat img, int t) {
   int sz = (t) ? img.rows : img.cols;
-  Mat mhist = Mat::zeros(1, sz, CV_32F);
+  cv::Mat mhist = cv::Mat::zeros(1, sz, CV_32F);
 
   for (int j = 0; j < sz; j++) {
-    Mat data = (t) ? img.row(j) : img.col(j);
+    cv::Mat data = (t) ? img.row(j) : img.col(j);
 
     mhist.at<float>(j) = countOfBigValue(
         data, 20);  //统计这一行或一列中，非零元素的个数，并保存到mhist中

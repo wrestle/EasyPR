@@ -2,16 +2,20 @@
 // 所属命名空间为easypr
 // 这个部分中的特征由easypr的开发者修改
 
-#include "easypr/core/feature.h"
-#include "easypr/core/core_func.h"
+#include "../../include/easypr/feature.h"
+#include "../../include/easypr/core_func.h"
 
 /*! \namespace easypr
-Namespace where all the C++ EasyPR functionality resides
+    Namespace where all the C++ EasyPR functionality resides
 */
 namespace easypr {
 
 //! 获取垂直和水平的直方图图值
-Mat getTheFeatures(Mat in) {
+cv::Mat getTheFeatures(cv::Mat in) {
+	//cv class
+	using cv::Mat;
+	// std::cerr << "Debug <<<< Iam here In getTheFeatures" << std::endl;
+
   const int VERTICAL = 0;
   const int HORIZONTAL = 1;
 
@@ -39,8 +43,17 @@ Mat getTheFeatures(Mat in) {
 }
 
 //! EasyPR的getFeatures回调函数
+//! 本函数是生成直方图均衡特征的回调函数
+void getHisteqFeatures(const cv::Mat& image, cv::Mat& features) {
+  features = histeq(image);
+}
+
+//! EasyPR的getFeatures回调函数
 //! 本函数是获取垂直和水平的直方图图值
-void getHistogramFeatures(const Mat& image, Mat& features) {
+void getHistogramFeatures(const cv::Mat& image, cv::Mat& features) {
+	//cv class
+	using cv::Mat;
+
   Mat grayImage;
   cvtColor(image, grayImage, CV_RGB2GRAY);
 
@@ -54,19 +67,19 @@ void getHistogramFeatures(const Mat& image, Mat& features) {
 
 //! EasyPR的getFeatures回调函数
 //! 本函数是获取SITF特征子
-void getSIFTFeatures(const Mat& image, Mat& features) {
+void getSIFTFeatures(const cv::Mat& image, cv::Mat& features) {
   //待完善
 }
 
 //! EasyPR的getFeatures回调函数
 //! 本函数是获取HOG特征子
-void getHOGFeatures(const Mat& image, Mat& features) {
+void getHOGFeatures(const cv::Mat& image, cv::Mat& features) {
   //待完善
 }
 
 //! EasyPR的getFeatures回调函数
 //! 本函数是获取HSV空间量化的直方图特征子
-void getHSVHistFeatures(const Mat& image, Mat& features) {
+void getHSVHistFeatures(const cv::Mat& image, cv::Mat& features) {
   // TODO
 }
 

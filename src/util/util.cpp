@@ -1,4 +1,4 @@
-#include "easypr/util/util.h"
+#include "../../include/easypr/util.h"
 #include <string>
 
 #ifdef OS_WINDOWS
@@ -102,7 +102,7 @@ std::vector<std::string> Utils::splitString(const std::string& str,
 }
 
 std::vector<std::string> Utils::getFiles(const std::string& folder,
-                                         const bool all /* = true */) {
+                                         const bool all /*= true*/ ) {
   std::vector<std::string> files;
   std::list<std::string> subfolders;
   subfolders.push_back(folder);
@@ -115,16 +115,21 @@ std::vector<std::string> Utils::getFiles(const std::string& folder,
     } else {
       current_folder.append("*");
     }
+	/// Debug!
+	std::cout << "Now the Path is = " << current_folder << std::endl;
 
-    subfolders.pop_back();
+	subfolders.pop_back();
 
-    struct _finddata_t file_info;
-    long file_handler = _findfirst(current_folder.c_str(), &file_info);
+    struct _finddatai64_t file_info;
+    auto file_handler = _findfirsti64(current_folder.c_str(), &file_info);
 
     while (file_handler != -1) {
-      if (all &&
-          (!strcmp(file_info.name, ".") || !strcmp(file_info.name, ".."))) {
-        if (_findnext(file_handler, &file_info) != 0) break;
+
+      if ( all &&
+          (!strcmp(file_info.name, ".") || !strcmp(file_info.name, "..")) )
+	  {
+        if (_findnexti64(file_handler, &file_info) != 0)
+			break;
         continue;
       }
 
@@ -148,7 +153,7 @@ std::vector<std::string> Utils::getFiles(const std::string& folder,
         files.push_back(file_path);
       }
 
-      if (_findnext(file_handler, &file_info) != 0) break;
+      if (_findnexti64(file_handler, &file_info) != 0) break;
     }  // while
     _findclose(file_handler);
   }

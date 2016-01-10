@@ -1,5 +1,5 @@
-#include "easypr/core/chars_segment.h"
-#include "easypr/util/util.h"
+#include "../../include/easypr/chars_segment.h"
+#include "../../include/easypr/util.h"
 
 using namespace std;
 
@@ -12,7 +12,7 @@ const float DEFAULT_BLUEPERCEMT = 0.3f;
 const float DEFAULT_WHITEPERCEMT = 0.1f;
 
 CCharsSegment::CCharsSegment() {
-  // cout << "CCharsSegment" << endl;
+ // cout << "start Create CCharsSegment Obj" << endl;
   m_LiuDingSize = DEFAULT_LIUDING_SIZE;
   m_theMatWidth = DEFAULT_MAT_WIDTH;
 
@@ -22,10 +22,11 @@ CCharsSegment::CCharsSegment() {
   m_WhitePercent = DEFAULT_WHITEPERCEMT;
 
   m_debug = DEFAULT_DEBUG;
+ // std::cout << "Create CCharsSegment Obj success!" << std::endl;
 }
 
 //! 字符尺寸验证
-bool CCharsSegment::verifyCharSizes(Mat r) {
+bool CCharsSegment::verifyCharSizes(cv::Mat r) {
   // Char sizes 45x90
   float aspect = 45.0f / 90.0f;
   float charAspect = (float)r.cols / (float)r.rows;
@@ -50,7 +51,13 @@ bool CCharsSegment::verifyCharSizes(Mat r) {
 }
 
 //! 字符预处理
-Mat CCharsSegment::preprocessChar(Mat in) {
+cv::Mat CCharsSegment::preprocessChar(cv::Mat in) {
+	//cv class
+	using cv::Mat;
+	//cv function
+	using cv::Scalar;
+	using cv::Size;
+
   // Remap image
   int h = in.rows;
   int w = in.cols;
@@ -61,8 +68,8 @@ Mat CCharsSegment::preprocessChar(Mat in) {
   transformMat.at<float>(1, 2) = float(m / 2 - h / 2);
 
   Mat warpImage(m, m, in.type());
-  warpAffine(in, warpImage, transformMat, warpImage.size(), INTER_LINEAR,
-             BORDER_CONSTANT, Scalar(0));
+  warpAffine(in, warpImage, transformMat, warpImage.size(), cv::INTER_LINEAR,
+             cv::BORDER_CONSTANT, Scalar(0));
 
   //！ 将所有的字符调整成统一的尺寸
   Mat out;
@@ -71,8 +78,22 @@ Mat CCharsSegment::preprocessChar(Mat in) {
   return out;
 }
 
+// implementation of otsu algorithm
+// author: onezeros(@yahoo.cn)
+// reference: Rafael C. Gonzalez. Digital Image Processing Using MATLAB
+
+int staticIndex = 0;
+int iTag = 0;
+
 //! 字符分割与排序
-int CCharsSegment::charsSegment(Mat input, vector<Mat>& resultVec) {
+int CCharsSegment::charsSegment(cv::Mat input, vector<cv::Mat>& resultVec) {
+	//cv class
+	using cv::Mat;
+	using cv::Rect_;
+	using cv::Point;
+	using cv::Rect;
+
+  // 输入图片无数据，返回ErrorCode=0x01
   if (!input.data) return 0x01;
 
   int w = input.cols;
@@ -80,17 +101,13 @@ int CCharsSegment::charsSegment(Mat input, vector<Mat>& resultVec) {
 
   Mat tmpMat = input(Rect_<double>(w * 0.1, h * 0.1, w * 0.8, h * 0.8));
 
-  // 判断车牌颜色以此确认threshold方法
+  //判断车牌颜色以此确认threshold方法
   Color plateType = getPlateType(tmpMat, true);
 
   Mat input_grey;
   cvtColor(input, input_grey, CV_BGR2GRAY);
 
   Mat img_threshold;
-
-  // 二值化
-  // 根据车牌的不同颜色使用不同的阈值判断方法
-  // TODO：使用MSER来提取这些轮廓
   if (BLUE == plateType) {
     // cout << "BLUE" << endl;
     img_threshold = input_grey.clone();
@@ -99,8 +116,13 @@ int CCharsSegment::charsSegment(Mat input, vector<Mat>& resultVec) {
     int h = input_grey.rows;
     Mat tmp = input_grey(Rect_<double>(w * 0.1, h * 0.1, w * 0.8, h * 0.8));
     int threadHoldV = ThresholdOtsu(tmp);
+    // utils::imwrite("E:/img_inputgray2.jpg", input_grey);
 
     threshold(input_grey, img_threshold, threadHoldV, 255, CV_THRESH_BINARY);
+    // utils::imwrite("E:/img_threshold.jpg", img_threshold);
+
+    // threshold(input_grey, img_threshold, 5, 255, CV_THRESH_OTSU +
+    // CV_THRESH_BINARY);
 
   } else if (YELLOW == plateType) {
     // cout << "YELLOW" << endl;
@@ -109,13 +131,21 @@ int CCharsSegment::charsSegment(Mat input, vector<Mat>& resultVec) {
     int h = input_grey.rows;
     Mat tmp = input_grey(Rect_<double>(w * 0.1, h * 0.1, w * 0.8, h * 0.8));
     int threadHoldV = ThresholdOtsu(tmp);
-    // utils::imwrite("resources/image/tmp/inputgray2.jpg", input_grey);
+    utils::imwrite("resources/image/tmp/inputgray2.jpg", input_grey);
 
     threshold(input_grey, img_threshold, threadHoldV, 255,
               CV_THRESH_BINARY_INV);
 
+    // threshold(input_grey, img_threshold, 10, 255, CV_THRESH_OTSU +
+    // CV_THRESH_BINARY_INV);
   } else if (WHITE == plateType) {
     // cout << "WHITE" << endl;
+    /*img_threshold = input_grey.clone();
+    int w = input_grey.cols;
+    int h = input_grey.rows;
+    Mat tmp = input_grey(Rect(w*0.1, h*0.1, w*0.8, h*0.8));
+    int threadHoldV = ThresholdOtsu(tmp);
+    utils::imwrite("resources/image/tmp/inputgray2.jpg", input_grey);*/
 
     threshold(input_grey, img_threshold, 10, 255,
               CV_THRESH_OTSU + CV_THRESH_BINARY_INV);
@@ -127,8 +157,14 @@ int CCharsSegment::charsSegment(Mat input, vector<Mat>& resultVec) {
 
   if (0) {
     imshow("threshold", img_threshold);
-    waitKey(0);
-    destroyWindow("threshold");
+    cv::waitKey(0);
+    cv::destroyWindow("threshold");
+  }
+
+  if (m_debug) {
+    stringstream ss(stringstream::in | stringstream::out);
+    ss << "resources/image/tmp/debug_char_threshold" << iTag << ".jpg";
+    utils::imwrite(ss.str(), img_threshold);
   }
 
   // 去除车牌上方的柳钉以及下方的横线等干扰
@@ -137,7 +173,13 @@ int CCharsSegment::charsSegment(Mat input, vector<Mat>& resultVec) {
   // 如果不是车牌，返回ErrorCode=0x02
   if (!clearLiuDing(img_threshold)) return 0x02;
 
-  // 在二值化图像中提取轮廓
+  if (m_debug) {
+    stringstream ss(stringstream::in | stringstream::out);
+    ss << "resources/image/tmp/debug_char_clearLiuDing" << iTag << ".jpg";
+    utils::imwrite(ss.str(), img_threshold);
+  }
+  iTag++;
+
   Mat img_contours;
   img_threshold.copyTo(img_contours);
 
@@ -163,24 +205,45 @@ int CCharsSegment::charsSegment(Mat input, vector<Mat>& resultVec) {
   if (vecRect.size() == 0) return 0x03;
 
   // 对符合尺寸的图块按照从左到右进行排序;
-  // 直接使用stl的sort方法，更有效率
+
+  /*vector<Rect> sortedRect;
+  SortRect(vecRect, sortedRect);*/
+
   vector<Rect> sortedRect(vecRect);
   std::sort(sortedRect.begin(), sortedRect.end(),
             [](const Rect& r1, const Rect& r2) { return r1.x < r2.x; });
 
   size_t specIndex = 0;
 
-  // 获得特殊字符对应的Rectt,如苏A的"A"
+  //获得特殊字符对应的Rectt,如苏A的"A"
   specIndex = GetSpecificRect(sortedRect);
 
-  // 根据特定Rect向左反推出中文字符
-  // 这样做的主要原因是根据findContours方法很难捕捉到中文字符的准确Rect，因此仅能
-  // 退过特定算法来指定
+  if (m_debug) {
+    if (specIndex < sortedRect.size()) {
+      Mat specMat(img_threshold, sortedRect[specIndex]);
+      stringstream ss(stringstream::in | stringstream::out);
+      ss << "resources/image/tmp/debug_specMat"
+         << ".jpg";
+      utils::imwrite(ss.str(), specMat);
+    }
+  }
+
+  //根据特定Rect向左反推出中文字符
+  //这样做的主要原因是根据findContours方法很难捕捉到中文字符的准确Rect，因此仅能
+  //退过特定算法来指定
   Rect chineseRect;
   if (specIndex < sortedRect.size())
     chineseRect = GetChineseRect(sortedRect[specIndex]);
   else
-    return 0x04;
+    return -3;
+
+  if (m_debug) {
+    Mat chineseMat(img_threshold, chineseRect);
+    stringstream ss(stringstream::in | stringstream::out);
+    ss << "resources/image/tmp/debug_chineseMat"
+       << ".jpg";
+    utils::imwrite(ss.str(), chineseMat);
+  }
 
   //新建一个全新的排序Rect
   //将中文字符Rect第一个加进来，因为它肯定是最左边的
@@ -189,47 +252,73 @@ int CCharsSegment::charsSegment(Mat input, vector<Mat>& resultVec) {
   newSortedRect.push_back(chineseRect);
   RebuildRect(sortedRect, newSortedRect, specIndex);
 
-  if (newSortedRect.size() == 0) return 0x05;
+  if (newSortedRect.size() == 0) return -3;
 
-  // 开始截取每个字符
   for (size_t i = 0; i < newSortedRect.size(); i++) {
     Rect mr = newSortedRect[i];
+    Mat auxRoi(img_threshold, mr);
 
-    // Mat auxRoi(img_threshold, mr);
-
-    // 使用灰度图来截取图块，然后依次对每个图块进行大津阈值来二值化
-    Mat auxRoi(input_grey, mr);
-    Mat newRoi;
-
-    if (BLUE == plateType) {
-      /* img_threshold = auxRoi.clone();
-       int w = input_grey.cols;
-       int h = input_grey.rows;
-       Mat tmp = input_grey(Rect_<double>(w * 0.1, h * 0.1, w * 0.8, h * 0.8));
-       int threadHoldV = ThresholdOtsu(tmp);*/
-
-      threshold(auxRoi, newRoi, 5, 255, CV_THRESH_BINARY + CV_THRESH_OTSU);
-    } else if (YELLOW == plateType) {
-      threshold(auxRoi, newRoi, 5, 255, CV_THRESH_BINARY_INV + CV_THRESH_OTSU);
-
-    } else if (WHITE == plateType) {
-      threshold(auxRoi, newRoi, 5, 255, CV_THRESH_OTSU + CV_THRESH_BINARY_INV);
-    } else {
-      threshold(auxRoi, newRoi, 5, 255, CV_THRESH_OTSU + CV_THRESH_BINARY);
+    if (1) {
+      auxRoi = preprocessChar(auxRoi);
+      if (m_debug) {
+        stringstream ss(stringstream::in | stringstream::out);
+        ss << "resources/image/tmp/debug_char_auxRoi_" << (i + staticIndex)
+           << ".jpg";
+        utils::imwrite(ss.str(), auxRoi);
+      }
+      resultVec.push_back(auxRoi);
     }
+  }
+  staticIndex += newSortedRect.size();
 
-    // 归一化大小
-    newRoi = preprocessChar(newRoi);
+  return 0;
+}
 
-    // 每个字符图块输入到下面的步骤进行处理
-    resultVec.push_back(newRoi);
+//! 将Rect按位置从左到右进行排序
+int CCharsSegment::SortRect(const vector<cv::Rect>& vecRect, vector<cv::Rect>& out) {
+
+  vector<int> orderIndex;
+  vector<int> xpositions;
+
+  for (size_t i = 0; i < vecRect.size(); i++) {
+    orderIndex.push_back(i);
+    xpositions.push_back(vecRect[i].x);
+  }
+
+  int min = xpositions[0];
+  int minIdx = 0;
+  for (size_t i = 0; i < xpositions.size(); i++) {
+    min = xpositions[i];
+    minIdx = i;
+    for (size_t j = i; j < xpositions.size(); j++) {
+      if (xpositions[j] < min) {
+        min = xpositions[j];
+        minIdx = j;
+      }
+    }
+    int aux_i = orderIndex[i];
+    int aux_min = orderIndex[minIdx];
+    orderIndex[i] = aux_min;
+    orderIndex[minIdx] = aux_i;
+
+    int aux_xi = xpositions[i];
+    int aux_xmin = xpositions[minIdx];
+    xpositions[i] = aux_xmin;
+    xpositions[minIdx] = aux_xi;
+  }
+
+  for (size_t i = 0; i < orderIndex.size(); i++) {
+    out.push_back(vecRect[orderIndex[i]]);
   }
 
   return 0;
 }
 
 //! 根据特殊车牌来构造猜测中文字符的位置和大小
-Rect CCharsSegment::GetChineseRect(const Rect rectSpe) {
+cv::Rect CCharsSegment::GetChineseRect(const cv::Rect rectSpe) {
+	//cv class
+	using cv::Rect;
+
   int height = rectSpe.height;
   float newwidth = rectSpe.width * 1.15f;
   int x = rectSpe.x;
@@ -244,7 +333,10 @@ Rect CCharsSegment::GetChineseRect(const Rect rectSpe) {
 }
 
 //! 找出指示城市的字符的Rect，例如苏A7003X，就是"A"的位置
-int CCharsSegment::GetSpecificRect(const vector<Rect>& vecRect) {
+int CCharsSegment::GetSpecificRect(const vector<cv::Rect>& vecRect) {
+	//cv class
+	using cv::Rect;
+
   vector<int> xpositions;
   int maxHeight = 0;
   int maxWidth = 0;
@@ -280,8 +372,8 @@ int CCharsSegment::GetSpecificRect(const vector<Rect>& vecRect) {
 //! 这个函数做两个事情
 //  1.把特殊字符Rect左边的全部Rect去掉，后面再重建中文字符的位置。
 //  2.从特殊字符Rect开始，依次选择6个Rect，多余的舍去。
-int CCharsSegment::RebuildRect(const vector<Rect>& vecRect,
-                               vector<Rect>& outRect, int specIndex) {
+int CCharsSegment::RebuildRect(const vector<cv::Rect>& vecRect,
+                               vector<cv::Rect>& outRect, int specIndex) {
   int count = 6;
   for (size_t i = specIndex; i < vecRect.size() && count; ++i, --count) {
     outRect.push_back(vecRect[i]);

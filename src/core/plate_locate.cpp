@@ -1,14 +1,18 @@
-#include "easypr/core/plate_locate.h"
-#include "easypr/util/util.h"
+#include "../../include/easypr/plate_locate.h"
+#include "../../include/easypr/util.h"
 
 using namespace std;
 
+/*! \namespace easypr
+        Namespace where all the C++ EasyPR functionality resides
+        */
 namespace easypr {
 
 const float DEFAULT_ERROR = 0.9f;    // 0.6
 const float DEFAULT_ASPECT = 3.75f;  // 3.75
 
 CPlateLocate::CPlateLocate() {
+  // cout << "CPlateLocate" << endl;
   m_GaussianBlurSize = DEFAULT_GAUSSIANBLUR_SIZE;
   m_MorphSizeWidth = DEFAULT_MORPH_SIZE_WIDTH;
   m_MorphSizeHeight = DEFAULT_MORPH_SIZE_HEIGHT;
@@ -47,7 +51,7 @@ void CPlateLocate::setLifemode(bool param) {
 }
 
 //! 对minAreaRect获得的最小外接矩形，用纵横比进行判断
-bool CPlateLocate::verifySizes(RotatedRect mr) {
+bool CPlateLocate::verifySizes(cv::RotatedRect mr) {
   float error = m_error;
   // Spain car plate size: 52x11 aspect 4,7272
   // China car plate size: 440mm*140mm，aspect 3.142857
@@ -79,9 +83,10 @@ bool CPlateLocate::verifySizes(RotatedRect mr) {
 }
 
 // !基于HSV空间的颜色搜索方法
-int CPlateLocate::colorSearch(const Mat& src, const Color r, Mat& out,
-                              vector<RotatedRect>& outRects, int index) {
-  Mat match_grey;
+int CPlateLocate::colorSearch(const cv::Mat& src, const Color r, cv::Mat& out,
+	vector<cv::RotatedRect>& outRects, int index)
+{
+	cv::Mat match_grey;
 
   // width值对最终结果影响很大，可以考虑进行多次colorSerch，每次不同的值
   // 另一种解决方案就是在结果输出到SVM之前，进行线与角的再纠正
@@ -95,13 +100,13 @@ int CPlateLocate::colorSearch(const Mat& src, const Color r, Mat& out,
     utils::imwrite("resources/image/tmp/match_grey.jpg", match_grey);
   }
 
-  Mat src_threshold;
+  cv::Mat src_threshold;
   threshold(match_grey, src_threshold, 0, 255,
             CV_THRESH_OTSU + CV_THRESH_BINARY);
 
-  Mat element = getStructuringElement(
-      MORPH_RECT, Size(color_morph_width, color_morph_height));
-  morphologyEx(src_threshold, src_threshold, MORPH_CLOSE, element);
+  cv::Mat element = cv::getStructuringElement(
+	  cv::MORPH_RECT, cv::Size(color_morph_width, color_morph_height));
+  morphologyEx(src_threshold, src_threshold, cv::MORPH_CLOSE, element);
 
   if (m_debug) {
     utils::imwrite("resources/image/tmp/color.jpg", src_threshold);
@@ -110,7 +115,7 @@ int CPlateLocate::colorSearch(const Mat& src, const Color r, Mat& out,
   src_threshold.copyTo(out);
 
   // 查找轮廓
-  vector<vector<Point>> contours;
+  vector<vector<cv::Point>> contours;
 
   // 注意，findContours会改变src_threshold
   // 因此要输出src_threshold必须在这之前使用copyTo方法
@@ -119,9 +124,9 @@ int CPlateLocate::colorSearch(const Mat& src, const Color r, Mat& out,
                CV_RETR_EXTERNAL,       // 提取外部轮廓
                CV_CHAIN_APPROX_NONE);  // all pixels of each contours
 
-  vector<vector<Point>>::iterator itc = contours.begin();
+  vector<vector<cv::Point>>::iterator itc = contours.begin();
   while (itc != contours.end()) {
-    RotatedRect mr = minAreaRect(Mat(*itc));
+	  cv::RotatedRect mr = cv::minAreaRect(cv::Mat(*itc));
 
     // 需要进行大小尺寸判断
     if (!verifySizes(mr))
@@ -137,31 +142,32 @@ int CPlateLocate::colorSearch(const Mat& src, const Color r, Mat& out,
 
 //! Sobel第一次搜索
 //! 不限制大小和形状，获取的BoundRect进入下一步
-int CPlateLocate::sobelFrtSearch(const Mat& src,
-                                 vector<Rect_<float>>& outRects) {
-  Mat src_threshold;
+int CPlateLocate::sobelFrtSearch(const cv::Mat& src,
+	vector<cv::Rect_<float>>& outRects)
+{
+	cv::Mat src_threshold;
   // soble操作，得到二值图像
   sobelOper(src, src_threshold, m_GaussianBlurSize, m_MorphSizeWidth,
             m_MorphSizeHeight);
 
   if (0) {
     imshow("sobelFrtSearch", src_threshold);
-    waitKey(0);
-    destroyWindow("sobelFrtSearch");
+	cv::waitKey(0);
+	cv::destroyWindow("sobelFrtSearch");
   }
 
-  vector<vector<Point>> contours;
+  vector<vector<cv::Point>> contours;
   findContours(src_threshold,
                contours,               // a vector of contours
                CV_RETR_EXTERNAL,       // 提取外部轮廓
                CV_CHAIN_APPROX_NONE);  // all pixels of each contours
 
-  vector<vector<Point>>::iterator itc = contours.begin();
+  vector<vector<cv::Point>>::iterator itc = contours.begin();
 
-  vector<RotatedRect> first_rects;
+  vector<cv::RotatedRect> first_rects;
 
   while (itc != contours.end()) {
-    RotatedRect mr = minAreaRect(Mat(*itc));
+	  cv::RotatedRect mr = cv::minAreaRect(cv::Mat(*itc));
 
     // 需要进行大小尺寸判断
     if (verifySizes(mr)) {
@@ -179,9 +185,9 @@ int CPlateLocate::sobelFrtSearch(const Mat& src,
   }
 
   for (size_t i = 0; i < first_rects.size(); i++) {
-    RotatedRect roi_rect = first_rects[i];
+	  cv::RotatedRect roi_rect = first_rects[i];
 
-    Rect_<float> safeBoundRect;
+	  cv::Rect_<float> safeBoundRect;
     if (!calcSafeRect(roi_rect, src, safeBoundRect)) continue;
 
     outRects.push_back(safeBoundRect);
@@ -191,9 +197,10 @@ int CPlateLocate::sobelFrtSearch(const Mat& src,
 
 //! Sobel第二次搜索,对断裂的部分进行再次的处理
 //! 对大小和形状做限制，生成参考坐标
-int CPlateLocate::sobelSecSearchPart(Mat& bound, Point2f refpoint,
-                                     vector<RotatedRect>& outRects) {
-  Mat bound_threshold;
+int CPlateLocate::sobelSecSearchPart(cv::Mat& bound, cv::Point2f refpoint,
+	vector<cv::RotatedRect>& outRects)
+{
+	cv::Mat bound_threshold;
 
   ////!
   ///第二次参数比一次精细，但针对的是得到的外接矩阵之后的图像，再sobel得到二值图像
@@ -213,7 +220,7 @@ int CPlateLocate::sobelSecSearchPart(Mat& bound, Point2f refpoint,
   // int threadHoldV = ThresholdOtsu(tmp);
   // threshold(mat_gray, bound_threshold,threadHoldV, 255, CV_THRESH_BINARY);
 
-  Mat tempBoundThread = bound_threshold.clone();
+  cv::Mat tempBoundThread = bound_threshold.clone();
   ////
   clearLiuDingOnly(tempBoundThread);
 
@@ -238,29 +245,29 @@ int CPlateLocate::sobelSecSearchPart(Mat& bound, Point2f refpoint,
     utils::imwrite("resources/image/tmp/repaireimg2.jpg", bound_threshold);
   }
 
-  vector<vector<Point>> contours;
+  vector<vector<cv::Point>> contours;
   findContours(bound_threshold,
                contours,               // a vector of contours
                CV_RETR_EXTERNAL,       // 提取外部轮廓
                CV_CHAIN_APPROX_NONE);  // all pixels of each contours
 
-  vector<vector<Point>>::iterator itc = contours.begin();
+  vector<vector<cv::Point>>::iterator itc = contours.begin();
 
-  vector<RotatedRect> second_rects;
+  vector<cv::RotatedRect> second_rects;
   while (itc != contours.end()) {
-    RotatedRect mr = minAreaRect(Mat(*itc));
+	  cv::RotatedRect mr = cv::minAreaRect(cv::Mat(*itc));
     second_rects.push_back(mr);
     ++itc;
   }
 
   for (size_t i = 0; i < second_rects.size(); i++) {
-    RotatedRect roi = second_rects[i];
+	  cv::RotatedRect roi = second_rects[i];
     if (verifySizes(roi)) {
-      Point2f refcenter = roi.center + refpoint;
-      Size2f size = roi.size;
+		cv::Point2f refcenter = roi.center + refpoint;
+		cv::Size2f size = roi.size;
       float angle = roi.angle;
 
-      RotatedRect refroi(refcenter, size, angle);
+	  cv::RotatedRect refroi(refcenter, size, angle);
       outRects.push_back(refroi);
     }
   }
@@ -270,9 +277,10 @@ int CPlateLocate::sobelSecSearchPart(Mat& bound, Point2f refpoint,
 
 //! Sobel第二次搜索
 //! 对大小和形状做限制，生成参考坐标
-int CPlateLocate::sobelSecSearch(Mat& bound, Point2f refpoint,
-                                 vector<RotatedRect>& outRects) {
-  Mat bound_threshold;
+int CPlateLocate::sobelSecSearch(cv::Mat& bound, cv::Point2f refpoint,
+	vector<cv::RotatedRect>& outRects)
+{
+	cv::Mat bound_threshold;
 
   //!
   //第二次参数比一次精细，但针对的是得到的外接矩阵之后的图像，再sobel得到二值图像
@@ -310,29 +318,29 @@ int CPlateLocate::sobelSecSearch(Mat& bound, Point2f refpoint,
 
   utils::imwrite("resources/image/tmp/sobelSecSearch.jpg", bound_threshold);
 
-  vector<vector<Point>> contours;
+  vector<vector<cv::Point>> contours;
   findContours(bound_threshold,
                contours,               // a vector of contours
                CV_RETR_EXTERNAL,       // 提取外部轮廓
                CV_CHAIN_APPROX_NONE);  // all pixels of each contours
 
-  vector<vector<Point>>::iterator itc = contours.begin();
+  vector<vector<cv::Point>>::iterator itc = contours.begin();
 
-  vector<RotatedRect> second_rects;
+  vector<cv::RotatedRect> second_rects;
   while (itc != contours.end()) {
-    RotatedRect mr = minAreaRect(Mat(*itc));
+	  cv::RotatedRect mr = cv::minAreaRect(cv::Mat(*itc));
     second_rects.push_back(mr);
     ++itc;
   }
 
   for (size_t i = 0; i < second_rects.size(); i++) {
-    RotatedRect roi = second_rects[i];
+	  cv::RotatedRect roi = second_rects[i];
     if (verifySizes(roi)) {
-      Point2f refcenter = roi.center + refpoint;
-      Size2f size = roi.size;
+		cv::Point2f refcenter = roi.center + refpoint;
+		cv::Size2f size = roi.size;
       float angle = roi.angle;
 
-      RotatedRect refroi(refcenter, size, angle);
+	  cv::RotatedRect refroi(refcenter, size, angle);
       outRects.push_back(refroi);
     }
   }
@@ -342,13 +350,14 @@ int CPlateLocate::sobelSecSearch(Mat& bound, Point2f refpoint,
 
 //! Sobel运算//对图像分割，腐蚀和膨胀的操作
 //! 输入彩色图像，输出二值化图像
-int CPlateLocate::sobelOper(const Mat& in, Mat& out, int blurSize, int morphW,
-                            int morphH) {
-  Mat mat_blur;
+int CPlateLocate::sobelOper(const cv::Mat& in, cv::Mat& out, int blurSize, int morphW,
+                                           int morphH)
+{
+  cv::Mat mat_blur;
   mat_blur = in.clone();
-  GaussianBlur(in, mat_blur, Size(blurSize, blurSize), 0, 0, BORDER_DEFAULT);
+  GaussianBlur(in, mat_blur, cv::Size(blurSize, blurSize), 0, 0, cv::BORDER_DEFAULT);
 
-  Mat mat_gray;
+  cv::Mat mat_gray;
   if (mat_blur.channels() == 3)
     cvtColor(mat_blur, mat_gray, CV_RGB2GRAY);
   else
@@ -360,38 +369,42 @@ int CPlateLocate::sobelOper(const Mat& in, Mat& out, int blurSize, int morphW,
   int delta = SOBEL_DELTA;
   int ddepth = SOBEL_DDEPTH;
 
-  Mat grad_x, grad_y;
-  Mat abs_grad_x, abs_grad_y;
+  cv::Mat grad_x, grad_y;
+  cv::Mat abs_grad_x, abs_grad_y;
   // 对X  soble
-  Sobel(mat_gray, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
+  Sobel(mat_gray, grad_x, ddepth, 1, 0, 3, scale, delta, cv::BORDER_DEFAULT);
   convertScaleAbs(grad_x, abs_grad_x);
   // 对Y  soble
   // Sobel(mat_gray, grad_y, ddepth, 0, 1, 3, scale, delta, BORDER_DEFAULT);
   // convertScaleAbs(grad_y, abs_grad_y);
   // 在两个权值组合
   // 因为Y方向的权重是0，因此在此就不再计算Y方向的sobel了
-  Mat grad;
+  cv::Mat grad;
   addWeighted(abs_grad_x, SOBEL_X_WEIGHT, 0, 0, 0, grad);
   // 分割
-  Mat mat_threshold;
+  cv::Mat mat_threshold;
   double otsu_thresh_val =
       threshold(grad, mat_threshold, 0, 255, CV_THRESH_OTSU + CV_THRESH_BINARY);
   // 腐蚀和膨胀
-  Mat element = getStructuringElement(MORPH_RECT, Size(morphW, morphH));
-  morphologyEx(mat_threshold, mat_threshold, MORPH_CLOSE, element);
+  cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(morphW, morphH));
+  morphologyEx(mat_threshold, mat_threshold, cv::MORPH_CLOSE, element);
 
   out = mat_threshold;
 
   if (0) {
     imshow("sobelOper", out);
-    waitKey(0);
-    destroyWindow("sobelOper");
+	cv::waitKey(0);
+	cv::destroyWindow("sobelOper");
   }
 
   return 0;
 }
 
-void DeleteNotArea(Mat& inmat) {
+void DeleteNotArea(cv::Mat& inmat) {
+  using cv::Mat;
+  using cv::Rect;
+  using cv::Rect_;
+
   Mat input_grey;
   cvtColor(inmat, input_grey, CV_BGR2GRAY);
 
@@ -451,9 +464,19 @@ void DeleteNotArea(Mat& inmat) {
 }
 
 //! 抗扭斜处理
-int CPlateLocate::deskew(const Mat& src, const Mat& src_b,
-                         vector<RotatedRect>& inRects,
-                         vector<CPlate>& outPlates) {
+int CPlateLocate::deskew(const cv::Mat& src, const cv::Mat& src_b,
+                         vector<cv::RotatedRect>& inRects,
+                         vector<CPlate>& outPlates)
+{
+	//cv class
+	using cv::Mat;
+	using cv::RotatedRect;
+	using cv::Size;
+	using cv::Point2f;
+	using cv::Rect_;
+	//cv function
+	using cv::Scalar;
+
   Mat mat_debug;
   src.copyTo(mat_debug);
 
@@ -510,6 +533,7 @@ int CPlateLocate::deskew(const Mat& src, const Mat& src_b,
         // imshow("1roated_mat",rotated_mat);
         // imshow("rotated_mat_b",rotated_mat_b);
         if (isdeflection(rotated_mat_b, roi_angle, roi_slope)) {
+
           affine(rotated_mat, deskew_mat, roi_slope);
         } else
           deskew_mat = rotated_mat;
@@ -526,8 +550,8 @@ int CPlateLocate::deskew(const Mat& src, const Mat& src_b,
 
       if (0) {
         imshow("deskew_mat", deskew_mat);
-        waitKey(0);
-        destroyWindow("deskew_mat");
+        cv::waitKey(0);
+        cv::destroyWindow("deskew_mat");
       }
 
       //
@@ -535,14 +559,14 @@ int CPlateLocate::deskew(const Mat& src, const Mat& src_b,
           deskew_mat.cols * 1.0 / deskew_mat.rows < 6) {
         //如果图像大于我们所要求的图像，对图像进行一个大小变更
         if (deskew_mat.cols >= WIDTH || deskew_mat.rows >= HEIGHT)
-          resize(deskew_mat, plate_mat, plate_mat.size(), 0, 0, INTER_AREA);
+          resize(deskew_mat, plate_mat, plate_mat.size(), 0, 0, cv::INTER_AREA);
         else
-          resize(deskew_mat, plate_mat, plate_mat.size(), 0, 0, INTER_CUBIC);
+          resize(deskew_mat, plate_mat, plate_mat.size(), 0, 0, cv::INTER_CUBIC);
 
         if (0) {
           imshow("plate_mat", plate_mat);
-          waitKey(0);
-          destroyWindow("plate_mat");
+          cv::waitKey(0);
+          cv::destroyWindow("plate_mat");
         }
 
         CPlate plate;
@@ -552,19 +576,27 @@ int CPlateLocate::deskew(const Mat& src, const Mat& src_b,
       }
     }
   }
-
+  //测试
   if (0) {
     imshow("mat_debug", mat_debug);
-    waitKey(0);
-    destroyWindow("mat_debug");
+    cv::waitKey(0);
+    cv::destroyWindow("mat_debug");
   }
 
   return 0;
 }
 
 //! 旋转操作
-bool CPlateLocate::rotation(Mat& in, Mat& out, const Size rect_size,
-                            const Point2f center, const double angle) {
+bool CPlateLocate::rotation(cv::Mat& in, cv::Mat& out, const cv::Size rect_size,
+										  const cv::Point2f center, const double angle)
+{
+	//cv class
+	using cv::Mat;
+	using cv::Rect_;
+	using cv::Point2f;
+	//cv function
+	using cv::Size;
+
   Mat in_large;
   in_large.create(int(in.rows * 1.5), int(in.cols * 1.5), in.type());
 
@@ -611,9 +643,12 @@ bool CPlateLocate::rotation(Mat& in, Mat& out, const Size rect_size,
 
 //! 是否偏斜
 //! 输入二值化图像，输出判断结果
-bool CPlateLocate::isdeflection(const Mat& in, const double angle,
-                                double& slope) { /*imshow("in",in);
-                                                waitKey(0);*/
+bool CPlateLocate::isdeflection(const cv::Mat& in, const double angle,
+                                double& slope)
+{
+	/*imshow("in",in);
+       waitKey(0);*/
+
   int nRows = in.rows;
   int nCols = in.cols;
 
@@ -676,10 +711,14 @@ bool CPlateLocate::isdeflection(const Mat& in, const double angle,
 }
 
 //! 扭变操作//通过opencv的仿射变换
-void CPlateLocate::affine(const Mat& in, Mat& out, const double slope) {
+void CPlateLocate::affine(const cv::Mat& in, cv::Mat& out, const double slope) {
   // imshow("in", in);
   // waitKey(0);
   //这里的slope是通过判断是否倾斜得出来的倾斜率
+	//cv class
+	using cv::Mat;
+	using cv::Point2f;
+
   Point2f dstTri[3];
   Point2f plTri[3];
 
@@ -726,8 +765,12 @@ void CPlateLocate::affine(const Mat& in, Mat& out, const double slope) {
 
 //! 计算一个安全的Rect
 //! 如果不存在，返回false
-bool CPlateLocate::calcSafeRect(const RotatedRect& roi_rect, const Mat& src,
-                                Rect_<float>& safeBoundRect) {
+bool CPlateLocate::calcSafeRect(const cv::RotatedRect& roi_rect, const cv::Mat& src,
+                                cv::Rect_<float>& safeBoundRect)
+{
+	//cv class
+	using cv::Rect_;
+
   Rect_<float> boudRect = roi_rect.boundingRect();
 
   // boudRect的左上的x和y有可能小于0
@@ -753,8 +796,13 @@ bool CPlateLocate::calcSafeRect(const RotatedRect& roi_rect, const Mat& src,
 }
 
 // !基于颜色信息的车牌定位
-int CPlateLocate::plateColorLocate(Mat src, vector<CPlate>& candPlates,
-                                   int index) {
+int CPlateLocate::plateColorLocate(cv::Mat src, vector<CPlate>& candPlates,
+                                   int index)
+{
+	//cv class
+	using cv::RotatedRect;
+	using cv::Mat;
+
   vector<RotatedRect> rects_color_blue;
   vector<RotatedRect> rects_color_yellow;
   vector<CPlate> plates;
@@ -778,11 +826,19 @@ int CPlateLocate::plateColorLocate(Mat src, vector<CPlate>& candPlates,
 
 //! Sobel运算
 //! 输入彩色图像，输出二值化图像
-int CPlateLocate::sobelOperT(const Mat& in, Mat& out, int blurSize, int morphW,
-                             int morphH) {
+int CPlateLocate::sobelOperT(const cv::Mat& in, cv::Mat& out, int blurSize, int morphW,
+                             int morphH)
+{
+	//cv class
+	using cv::Mat;
+	//cv function
+	using cv::Size;
+	using cv::getStructuringElement;
+	using cv::morphologyEx;
+
   Mat mat_blur;
   mat_blur = in.clone();
-  GaussianBlur(in, mat_blur, Size(blurSize, blurSize), 0, 0, BORDER_DEFAULT);
+  GaussianBlur(in, mat_blur, Size(blurSize, blurSize), 0, 0, cv::BORDER_DEFAULT);
 
   Mat mat_gray;
   if (mat_blur.channels() == 3)
@@ -801,7 +857,7 @@ int CPlateLocate::sobelOperT(const Mat& in, Mat& out, int blurSize, int morphW,
   Mat grad_x, grad_y;
   Mat abs_grad_x, abs_grad_y;
 
-  Sobel(mat_gray, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT);
+  Sobel(mat_gray, grad_x, ddepth, 1, 0, 3, scale, delta, cv::BORDER_DEFAULT);
   convertScaleAbs(grad_x, abs_grad_x);
 
   //因为Y方向的权重是0，因此在此就不再计算Y方向的sobel了
@@ -816,8 +872,8 @@ int CPlateLocate::sobelOperT(const Mat& in, Mat& out, int blurSize, int morphW,
 
   utils::imwrite("resources/image/tmp/grayBINARY.jpg", mat_threshold);
 
-  Mat element = getStructuringElement(MORPH_RECT, Size(morphW, morphH));
-  morphologyEx(mat_threshold, mat_threshold, MORPH_CLOSE, element);
+  Mat element = getStructuringElement(cv::MORPH_RECT, Size(morphW, morphH));
+  morphologyEx(mat_threshold, mat_threshold, cv::MORPH_CLOSE, element);
 
   utils::imwrite("resources/image/tmp/phologyEx.jpg", mat_threshold);
 
@@ -827,8 +883,15 @@ int CPlateLocate::sobelOperT(const Mat& in, Mat& out, int blurSize, int morphW,
 }
 
 // !基于垂直线条的车牌定位
-int CPlateLocate::plateSobelLocate(Mat src, vector<CPlate>& candPlates,
-                                   int index) {
+int CPlateLocate::plateSobelLocate(cv::Mat src, vector<CPlate>& candPlates,
+                                   int index)
+{
+	//cv class
+	using cv::RotatedRect;
+	using cv::Rect_;
+	using cv::Point2f;
+	using cv::Mat;
+
   vector<RotatedRect> rects_sobel;
   vector<RotatedRect> rects_sobel_sel;
   vector<CPlate> plates;
@@ -914,7 +977,7 @@ int CPlateLocate::plateSobelLocate(Mat src, vector<CPlate>& candPlates,
 
 // !车牌定位
 // !把颜色与Sobel定位的车牌全部输出
-int CPlateLocate::plateLocate(Mat src, vector<Mat>& resultVec, int index) {
+int CPlateLocate::plateLocate(cv::Mat src, vector<cv::Mat>& resultVec, int index) {
   vector<CPlate> all_result_Plates;
 
   plateColorLocate(src, all_result_Plates, index);
@@ -926,6 +989,9 @@ int CPlateLocate::plateLocate(Mat src, vector<Mat>& resultVec, int index) {
   }
 
   return 0;
+
 }
+
+
 
 } /*! \namespace easypr*/

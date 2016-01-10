@@ -14,10 +14,8 @@ else()
     message(STATUS "The compiler ${CMAKE_CXX_COMPILER} doesn’t support C++11. Please upgrade or use a different C++ compiler.")
 endif()
 
-set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "/usr/local/opt/opencv3")
-# opencv3 package required
-find_package(OpenCV 3.0.0 REQUIRED)
-include_directories(${OpenCV_INCLUDE_DIRS})
+# opencv package required
+find_package(OpenCV REQUIRED)
 
 # easypr library
 include_directories(include)
@@ -34,7 +32,6 @@ set(SOURCE_FILES
     src/core/plate_recognize.cpp
     src/train/ann_train.cpp
     src/train/svm_train.cpp
-    src/train/train.cpp
     src/preprocess/deface.cpp
     src/preprocess/gdts.cpp
     src/preprocess/mc_data.cpp
@@ -44,8 +41,6 @@ set(SOURCE_FILES
 add_library(easypr STATIC ${SOURCE_FILES})
 
 # test cases
-add_executable(demo test/main.cpp)
+add_executable(easypr_test test/main.cpp)
 
-# link
-target_link_libraries(demo ${OpenCV_LIBS} easypr ${OpenCV_LIBS})
-set_target_properties(demo PROPERTIES RUNTIME_OUTPUT_DIRECTORY ../)
+target_link_libraries(easypr_test ${OpenCV_LIBS} easypr)

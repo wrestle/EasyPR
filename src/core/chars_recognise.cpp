@@ -1,23 +1,58 @@
-#include "easypr/core/chars_recognise.h"
-#include "easypr/util/util.h"
+#include "../../include/easypr/chars_recognise.h"
 
+/*! \namespace easypr
+Namespace where all the C++ EasyPR functionality resides
+*/
 namespace easypr {
 
-CCharsRecognise::CCharsRecognise() { m_charsSegment = new CCharsSegment(); }
+CCharsRecognise::CCharsRecognise() {
+  // cout << "CCharsRecognise" << endl;
+  m_charsSegment = new CCharsSegment();
+  m_charsIdentify = new CCharsIdentify();
+}
 
-CCharsRecognise::~CCharsRecognise() { SAFE_RELEASE(m_charsSegment); }
+void CCharsRecognise::LoadANN(string s) {
+  m_charsIdentify->LoadModel(s);
+}
 
-std::string CCharsRecognise::charsRecognise(Mat plate) {
-  std::vector<Mat> matChars;
-  std::string license;
+string CCharsRecognise::charsRecognise(cv::Mat plate) {
+  return m_charsIdentify->charsIdentify(plate);
+}
+int CCharsRecognise::charsRecognise(cv::Mat plate, cv::String & plateLicense) {
+	using std::vector;
+	using std::string;
+	//车牌字符方块集合
 
-  int result = m_charsSegment->charsSegment(plate, matChars);
+  vector<cv::Mat> matVec;
+
+  string plateIdentify = "";
+
+  int result = m_charsSegment->charsSegment(plate, matVec);
   if (result == 0) {
-    for (auto block : matChars) {
-      auto character = CharsIdentify::instance()->identify(block);
-      license.append(character.second);
+    int num = matVec.size();
+    for (int j = 0; j < num; j++) {
+      cv::Mat charMat = matVec[j];
+      bool isChinses = false;
+      bool isSpeci = false;
+
+      //默认首个字符块是中文字符
+      if (j == 0) isChinses = true;
+      if (j == 1) isSpeci = true;
+
+      string charcater =
+          m_charsIdentify->charsIdentify(charMat, isChinses, isSpeci);
+
+      plateIdentify = plateIdentify + charcater;
     }
   }
-  return license;
+
+  plateLicense = plateIdentify;
+
+  if (plateLicense.size() < 7) {
+    return -1;
+  }
+
+  return result;
 }
-}
+
+} /*! \namespace easypr*/
